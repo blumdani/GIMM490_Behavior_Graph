@@ -41,8 +41,14 @@ public partial class HealAction : Action
             Target.Value = GameObject.FindWithTag("Player");
             hasReachedTarget = false;
         }
-        else if(DirectCommand.Value == DirectCommands.HealYourself)
+        else if (DirectCommand.Value == DirectCommands.HealYourself)
         {
+            Target.Value = Agent.Value;
+
+            agent.ResetPath();
+            agent.velocity = Vector3.zero;
+            agent.isStopped = true;
+
             hasReachedTarget = true;
         }
 
@@ -51,6 +57,24 @@ public partial class HealAction : Action
 
     protected override Status OnUpdate()
     {
+        // Exit immediately if heal should not happen
+        bool needHealPlayer = healthController.playerHealth < 100;
+        bool needHealSelf = healthController.companionHealth < 100;
+
+        if (DirectCommand.Value == DirectCommands.HealMe && !needHealPlayer)
+            return Status.Failure;
+
+        if (DirectCommand.Value == DirectCommands.HealYourself && !needHealSelf)
+            return Status.Failure;
+
+        if (Inventory.Instance.GetAmount(MaterialType.Medicine) <= 0)
+            return Status.Failure;
+
+        // Healing self stops movement
+        if (Target.Value == Agent.Value)
+        {
+            hasReachedTarget = true;
+        }
         //Check for interrupt
         if (DirectCommand.Value != expectedCommand)
         {
@@ -71,7 +95,7 @@ public partial class HealAction : Action
         }
 
         //Update the distance between agent and target
-        Vector3 targetPosition = Target.Value.transform.position;
+        Vector3 targetPosition = Target.Value.gameObject.transform.position;
         float dist = Vector3.Distance(agent.transform.position, targetPosition);
 
         //If we haven't reached the target, move toward it

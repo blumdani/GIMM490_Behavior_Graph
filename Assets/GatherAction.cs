@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Buffers;
 using Unity.Behavior;
 using Unity.Properties;
@@ -31,19 +31,45 @@ public partial class GatherAction : Action
     protected override Status OnStart()
     {
         Debug.Log("ATTEMPTING TO GATHER");
-        //assign agent alias
+
         agent = Agent.Value.GetComponent<NavMeshAgent>();
-        agent.isStopped = false;
+
         expectedCommand = DirectCommand.Value;
 
-        //Initialize variables
+        agent.isStopped = false;
+        agent.ResetPath();
+        agent.updatePosition = true;
+        agent.updateRotation = true;
+
         hasReachedTarget = false;
         gatherTimer = 0f;
+
+        if (Material.Value != null)
+        {
+            Debug.Log("DIRECT GATHER MODE");
+            Debug.Log("Material passed in: " + Material.Value);
+            return Status.Running;
+        }
+
+        Debug.Log("AUTONOMOUS GATHER MODE");
+
+        MaterialType lowest = GetLowestMaterial();
+        string tag = GetTagFromMaterial(lowest);
+
+        GameObject target = FindClosestWithTag(tag);
+
+        if (target == null)
+            return Status.Failure;
+
+        Material.Value = target;
+
         return Status.Running;
     }
 
     protected override Status OnUpdate()
     {
+        Debug.Log("isStopped = " + agent.isStopped);
+
         if (DirectCommand.Value != expectedCommand)
         {
             if (agent != null && agent.isOnNavMesh)
@@ -68,6 +94,10 @@ public partial class GatherAction : Action
         //If we haven't reached the target, move toward it
         if (!hasReachedTarget)
         {
+            if (agent.isStopped)
+            {
+                agent.isStopped = false;
+            }
             agent.SetDestination(targetPosition);
 
             //If we have reached it, stop moving.
@@ -83,16 +113,16 @@ public partial class GatherAction : Action
         {
             //After movement, gather for gatherTime
             gatherTimer += Time.deltaTime;
-            if(gatherTimer >= gatherTime)
+            if (gatherTimer >= gatherTime)
             {
-                GameObject.Destroy(Material.Value.gameObject);
-                Inventory.Instance.AddMaterial(GetMaterialType(Material.Value.gameObject));
+                var type = GetMaterialType(Material.Value);
+
+                GameObject.Destroy(Material.Value);
+                Inventory.Instance.AddMaterial(type);
+
                 Material.Value = null;
 
-                if (DirectCommand != null)
-                    DirectCommand.Value = DirectCommands.Wait;
-
-                return Status.Failure;
+                return Status.Failure; // force reevaluation
             }
         }
 
@@ -103,7 +133,8 @@ public partial class GatherAction : Action
     {
         if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh)
         {
-            agent.isStopped = true;
+            agent.ResetPath();
+            agent.isStopped = false;
         }
     }
 
@@ -126,6 +157,57 @@ public partial class GatherAction : Action
 
         Debug.LogWarning("Unknown material tag: " + obj.tag);
         return MaterialType.Tree; // default
+    }
+
+    MaterialType GetLowestMaterial()
+    {
+        int wood = Inventory.Instance.GetAmount(MaterialType.Tree);
+        int rock = Inventory.Instance.GetAmount(MaterialType.Rocks);
+        int grass = Inventory.Instance.GetAmount(MaterialType.Grass);
+        int med = Inventory.Instance.GetAmount(MaterialType.Medicine);
+
+        MaterialType lowest = MaterialType.Tree;
+        int min = wood;
+
+        if (rock < min) { min = rock; lowest = MaterialType.Rocks; }
+        if (grass < min) { min = grass; lowest = MaterialType.Grass; }
+        if (med < min) { min = med; lowest = MaterialType.Medicine; }
+
+        return lowest;
+    }
+
+    string GetTagFromMaterial(MaterialType type)
+    {
+        switch (type)
+        {
+            case MaterialType.Tree: return "Tree";
+            case MaterialType.Rocks: return "Rock";
+            case MaterialType.Grass: return "Grass";
+            case MaterialType.Medicine: return "Medicine";
+        }
+
+        return "Tree";
+    }
+
+    GameObject FindClosestWithTag(string tag)
+    {
+        GameObject[] objs = GameObject.FindGameObjectsWithTag(tag);
+        if (objs.Length == 0) return null;
+
+        GameObject closest = objs[0];
+        float minDist = Vector3.Distance(agent.transform.position, closest.transform.position);
+
+        foreach (GameObject obj in objs)
+        {
+            float dist = Vector3.Distance(agent.transform.position, obj.transform.position);
+            if (dist < minDist)
+            {
+                minDist = dist;
+                closest = obj;
+            }
+        }
+
+        return closest;
     }
 }
 

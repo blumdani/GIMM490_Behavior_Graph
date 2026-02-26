@@ -4,8 +4,8 @@ using Unity.Behavior;
 [BlackboardEnum]
 public enum LowestMaterial
 {
-	medicine,
-	rock,
-	grass,
-	wood
+	Medicine,
+	Rocks,
+	Grass,
+	Tree
 }
