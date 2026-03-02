@@ -44,7 +44,7 @@ public partial class HealAction : Action
         else if (DirectCommand.Value == DirectCommands.HealYourself)
         {
             Target.Value = Agent.Value;
-
+            //Make sure agent does not lock in previous gameObject position for movement.
             agent.ResetPath();
             agent.velocity = Vector3.zero;
             agent.isStopped = true;
@@ -61,12 +61,15 @@ public partial class HealAction : Action
         bool needHealPlayer = healthController.playerHealth < 100;
         bool needHealSelf = healthController.companionHealth < 100;
 
+        //If I give a command to Heal Me but my health is full, exit immediately.
         if (DirectCommand.Value == DirectCommands.HealMe && !needHealPlayer)
             return Status.Failure;
 
+        //If I give a command to heal self but companion's health is full, exit immediately.
         if (DirectCommand.Value == DirectCommands.HealYourself && !needHealSelf)
             return Status.Failure;
 
+        //If there is no medicine in our inventory, exit immediately.
         if (Inventory.Instance.GetAmount(MaterialType.Medicine) <= 0)
             return Status.Failure;
 
@@ -75,7 +78,8 @@ public partial class HealAction : Action
         {
             hasReachedTarget = true;
         }
-        //Check for interrupt
+
+        //Check for interrupted command
         if (DirectCommand.Value != expectedCommand)
         {
             if (agent != null && agent.isOnNavMesh)

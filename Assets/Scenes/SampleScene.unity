@@ -1373,7 +1373,7 @@ MonoBehaviour:
   - {fileID: 159137116}
   - {fileID: 1794708060}
   - {fileID: 1894530666}
-  spawnInterval: 45
+  spawnInterval: 30
 --- !u!1001 &205387175
 PrefabInstance:
   m_ObjectHideFlags: 0
